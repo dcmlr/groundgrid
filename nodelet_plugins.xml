@@ -1,0 +1,10 @@
+<library path="lib/libgroundgrid_nodelet">
+    <class name="groundgrid/Nodelet"
+           type="groundgrid::GroundGridNodelet"
+           base_class_type="nodelet::Nodelet"
+    >
+        <description>
+            GroundGrid: Ground Segmentation and Terrain Estimation
+        </description>
+    </class>
+</library>

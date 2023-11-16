@@ -1,0 +1,52 @@
+<!-- Launch file to start the full system with input from a bag file -->
+<launch>
+    <!-- nodelet -->
+    <arg name="use_nodelets"     default="$(optenv USE_NODELETS false)" doc="If nodelets should be used"/>
+    <arg name="nodelet_manager"  default="$(optenv NODELET_MANAGER core_nodelet_manager)" doc="Nodelet manager to be used" />
+    <arg name="paused"    default="false" doc="If the playback should be started paused" />
+    <arg name="point_cloud_topic" default="/pointcloud" doc="Point cloud topic to subscribe to" />
+    <param name="/use_sim_time" value="true" />
+
+    <remap from="/kitti/cloud" to="/pointcloud"/>
+
+    <!-- static transforms -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="kitti_base_to_base" args="1.95 0 -1.73 0 0 0  kitti_base_link base_link" />
+   <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="kitti_base_to_base" args="2.48 0 -1.733 0 0 0  kitti_base_link base_link" /> -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="kitti_map_to_map" args="-2.48 0 1.733 0 0 0 1 kitti_map map" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_odom" args="0 0 0 0 0 0 1 map odom" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="kitti_base_to_velodyne" args="0 0 0 0 0 0 kitti_base_link velodyne" />
+    
+
+    <!-- playback configuration -->
+    <arg name="rate"     default="$(optenv rate 1.0)"   doc="The playback speed as a factor" />
+	<arg name="logfile"  default="false" doc="The bag file to play back" />
+	<arg name="loop"     default="true"  doc="Whether to loop the bag file" />
+    <arg name="start"    default="0.0"   doc="Start seconds into the bag file" />
+    <arg name="end"      default="99999999"   doc="Stop at seconds into bag file" />
+    <arg name="duration" default="-1.0"  doc="Play only seconds from the bag files (negative value to deactivate)" /> 
+    <arg name="sequence" default="00"  doc="The KITTI odometry dataset sequence to play" />
+    <arg name="directory" default=""  doc="The path to the KITTI odometry dataset directory" />
+    <param name="/rate" value="$(arg rate)" />
+    <param name="/kitti_player/sequence" value="$(arg sequence)" />
+    <param name="/kitti_player/directory" value="$(arg directory)" />
+    <param name="/kitti_player/start" value="$(arg start)" />
+    <param name="/kitti_player/end" value="$(arg end)" />
+    <param name="/kitti_player/paused" value="$(arg paused)" />
+    <node
+        pkg="groundgrid"
+        name="kitti_data_publisher"
+        type="kitti_data_publisher.py"
+        output="screen"
+        >
+        </node>
+
+    <!-- launch GroundGrid -->
+    <include file="$(find groundgrid)/launch/GroundGrid.launch">
+        <arg name="use_nodelets" value="$(arg use_nodelets)" />
+        <arg name="nodelet_manager" value="$(arg nodelet_manager)" />
+        <arg name="point_cloud_topic" value="$(arg point_cloud_topic)" />
+    </include>
+
+    <!-- launch Rviz -->
+    <node type="rviz" name="rviz" pkg="rviz" args="-d $(find groundgrid)/rviz/groundgrid.rviz" />
+</launch>

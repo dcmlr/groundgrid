@@ -1,0 +1,12 @@
+imageio>=2.19.2
+rospkg>=1.4.0
+numpy>=1.22.3
+pandas>=1.4.1
+pyntcloud>=0.3.0
+rospy>=1.15.14
+sensor_msgs>=1.13.1
+tf2_ros>=0.7.5
+xmltodict>=0.13.0
+pyyaml>=6.0
+glfw==2.5.3
+tf>=1.13.2

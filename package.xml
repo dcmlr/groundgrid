@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>groundgrid</name>
+    <version>1.0.0</version>
+    <description>GroundGrid: Ground Segmentation and Terrain Estimation</description>
+
+    <maintainer email="n.steinke@fu-berlin.de">Dahlem Center for Machine Learning and Robotics, Autonomos-Labs, FU Berlin</maintainer>
+
+    <license>BSD</license>
+
+    <url type="website">https://www.autonomos-labs.de/</url>
+
+    <author email="n.steinkeg@fu-berlin.de">Dahlem Center for Machine Learning and Robotics, Autonomos-Labs, FU Berlin</author>
+
+    <buildtool_depend>catkin</buildtool_depend>
+
+    <build_depend>roscpp</build_depend>
+
+    <build_depend>geometry_msgs</build_depend>
+    <build_depend>sensor_msgs</build_depend>
+    <build_depend>std_msgs</build_depend>
+    <build_depend>message_generation</build_depend>
+    <exec_depend>message_runtime</exec_depend>
+
+    <depend>nodelet</depend>
+    <depend>dynamic_reconfigure</depend>
+
+    <!-- grid_map -->
+    <depend>grid_map_core</depend>
+    <depend>grid_map_ros</depend>
+    <depend>grid_map_cv</depend>
+    <depend>grid_map_loader</depend>
+    <depend>grid_map_msgs</depend>
+    <depend>grid_map_rviz_plugin</depend>
+    <depend>grid_map_visualization</depend>
+    <depend>cv_bridge</depend>
+    <depend>nav_msgs</depend>
+    <depend>pcl_ros</depend>
+
+    <!-- export of nodelet definition XML -->
+    <export>
+        <nodelet plugin="${prefix}/nodelet_plugins.xml" />
+    </export>
+</package>
