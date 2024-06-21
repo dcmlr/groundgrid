@@ -22,10 +22,6 @@ Panels:
     Name: Time
     SyncMode: 0
     SyncSource: segmented_cloud
-  - Class: autonomos_rviz_bag_control/BagControl
-    Name: BagControl
-  - Class: fub_simulator_rviz_control/SimulatorControl
-    Name: SimulatorControl
   - Class: rviz/Views
     Expanded:
       - /Current View1
@@ -127,7 +123,6 @@ Visualization Manager:
     - Class: rviz/PublishPoint
       Single click: true
       Topic: /clicked_point
-    - Class: autonomos/KeyboardTool
   Value: true
   Views:
     Current:
