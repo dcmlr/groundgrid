@@ -72,7 +72,8 @@ def init():
 
     input_thread = threading.Thread(target=terminal_input)
     input_thread.daemon = True
-    input_thread.start()
+    # input thread is disabled due to blocking of the terminal after exit
+    # input_thread.start()
 
     s_step = rospy.Service('/kitti_player/NextCloud', NextCloud, step)
 
