@@ -2,7 +2,7 @@
     "name": "GroundGrid",
     "privileged": true,
     "build": {
-        "dockerfile": "Dockerfile",
+        "dockerfile": "../Dockerfile",
         "args": {
             "USER_UID": "1000",
             "USER_GID": "1000"
@@ -17,7 +17,6 @@
         "--net",
         "host",
         "--privileged",
-        "--env=DISPLAY=:1",
         "--volume=/tmp/.X11-unix:/tmp/.X11-unix:rw"
     ],
     "hostRequirements": {

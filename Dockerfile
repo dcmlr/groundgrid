@@ -36,8 +36,9 @@ RUN apt-get update && apt-get install -y \
 # Set Python 3 as the default Python version
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
-# Install Python packages using pip
-RUN pip3 install cmake-format 
+# Copy requirements.txt and install Python packages using pip
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install -r /tmp/requirements.txt
 
 # Add a user for the development environment
 ARG USERNAME=devuser
@@ -50,14 +51,15 @@ RUN useradd --uid $USER_UID --gid $USER_GID --create-home --home-dir /home/$USER
 RUN echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME
 RUN chmod 0440 /etc/sudoers.d/$USERNAME
 
-# Set the working directory
+# Set the working directory and change ownership
 WORKDIR /home/$USERNAME/workspace
+RUN chown -R $USERNAME:$USERNAME /home/$USERNAME/workspace
+
+# Setup GUI forwarding with the correct DISPLAY setting
+RUN echo 'export DISPLAY=${DISPLAY:-:0}' >> /home/$USERNAME/.bashrc
 
 # Setup ROS1 environment in the bashrc for interactive bash shells
 RUN echo "source /opt/ros/noetic/setup.bash" >> /home/$USERNAME/.bashrc
-
-# Setup GUI forwarding with the correct DISPLAY setting
-RUN echo "export DISPLAY=:1" >> /home/$USERNAME/.bashrc
 
 # Switch to the non-root user
 USER $USERNAME
