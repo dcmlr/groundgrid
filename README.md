@@ -44,6 +44,8 @@ pip3 install -r requirements.txt
 Build:
 
 ```bash
+cd /home/devuser/workspace/groundgrid/src
+ln -s .. groundgrid
 catkin build -DCMAKE_BUILD_TYPE=Release groundgrid
 ```
 
