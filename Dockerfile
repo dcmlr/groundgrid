@@ -9,29 +9,29 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # Update package lists and install only necessary packages
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    git \
-    sudo \
-    lsb-release \
-    gnupg2 \
-    net-tools \
-    clang-format \
-    clangd \
-    gdb \
-    libpcl-dev \
-    libopencv-dev \
-    python3-pip \
-    python3-catkin-tools \
-    python3-rospkg \
-    python3-rospy \
-    ros-noetic-tf2-ros \
-    ros-noetic-sensor-msgs \
-    ros-noetic-catkin \
-    ros-noetic-pcl-ros \
-    ros-noetic-grid-map \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+  build-essential \
+  cmake \
+  git \
+  sudo \
+  lsb-release \
+  gnupg2 \
+  net-tools \
+  clang-format \
+  clangd \
+  gdb \
+  libpcl-dev \
+  libopencv-dev \
+  python3-pip \
+  python3-catkin-tools \
+  python3-rospkg \
+  python3-rospy \
+  ros-noetic-tf2-ros \
+  ros-noetic-sensor-msgs \
+  ros-noetic-catkin \
+  ros-noetic-pcl-ros \
+  ros-noetic-grid-map \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 # Set Python 3 as the default Python version
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
@@ -55,14 +55,14 @@ RUN chmod 0440 /etc/sudoers.d/$USERNAME
 WORKDIR /home/$USERNAME/workspace
 RUN chown -R $USERNAME:$USERNAME /home/$USERNAME/workspace
 
-# Setup GUI forwarding with the correct DISPLAY setting
-RUN echo 'export DISPLAY=${DISPLAY:-:0}' >> /home/$USERNAME/.bashrc
-
 # Setup ROS1 environment in the bashrc for interactive bash shells
 RUN echo "source /opt/ros/noetic/setup.bash" >> /home/$USERNAME/.bashrc
 
 # Switch to the non-root user
 USER $USERNAME
+
+# Set the entrypoint script inline in the Dockerfile to export $DISPLAY environment variable
+ENTRYPOINT ["/bin/bash", "-c", "if [ -z \"$DISPLAY\" ]; then echo 'Error: DISPLAY environment variable is not set.'; exit 1; fi; source /home/$USERNAME/.bashrc; exec \"$@\""]
 
 # Command to run on container start
 CMD ["/bin/bash"]
