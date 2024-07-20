@@ -33,6 +33,18 @@ This repository contains the source code for the article "GroundGrid: LiDAR Poin
 
 To be able to use Nvidia GPU graphics within Docker follow container toolkit installation steps <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#installing-the-nvidia-container-toolkit>.
 
+Build Docker image:
+
+```bash
+docker build -t groundgrid:latest .
+```
+
+Run Docker container:
+
+```bash
+docker run --net host --privileged --env="DISPLAY=$DISPLAY" --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" -v "${HOME}/workspace:/home/devuser/workspace" -it groundgrid:latest /bin/bash
+```
+
 ## Build
 
 Install required dependencies

@@ -46,10 +46,13 @@ ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
 # Create user with specified home directory
-RUN groupadd --gid $USER_GID $USERNAME || echo "Group $USERNAME already exists"
-RUN useradd --uid $USER_UID --gid $USER_GID --create-home --home-dir /home/$USERNAME $USERNAME || echo "User $USERNAME already exists"
-RUN echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME
-RUN chmod 0440 /etc/sudoers.d/$USERNAME
+RUN groupadd --gid $USER_GID $USERNAME \
+  && useradd --uid $USER_UID --gid $USER_GID --create-home --home-dir /home/$USERNAME $USERNAME \
+  && echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
+  && chmod 0440 /etc/sudoers.d/$USERNAME
+
+# Ensure .bashrc exists and source it in the entrypoint script
+RUN touch /home/$USERNAME/.bashrc
 
 # Set the working directory and change ownership
 WORKDIR /home/$USERNAME/workspace
@@ -60,9 +63,6 @@ RUN echo "source /opt/ros/noetic/setup.bash" >> /home/$USERNAME/.bashrc
 
 # Switch to the non-root user
 USER $USERNAME
-
-# Set the entrypoint script inline in the Dockerfile to export $DISPLAY environment variable
-ENTRYPOINT ["/bin/bash", "-c", "if [ -z \"$DISPLAY\" ]; then echo 'Error: DISPLAY environment variable is not set.'; exit 1; fi; source /home/$USERNAME/.bashrc; exec \"$@\""]
 
 # Command to run on container start
 CMD ["/bin/bash"]
