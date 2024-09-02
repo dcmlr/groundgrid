@@ -1,0 +1,121 @@
+{
+    "name": "GroundGrid",
+    "privileged": true,
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "args": {
+            "USER_UID": "1000",
+            "USER_GID": "1000"
+        }
+    },
+    "containerEnv": {
+        "ROS_AUTOMATIC_DISCOVERY_RANGE": "LOCALHOST",
+        "ROS_DOMAIN_ID": "0"
+    },
+    "runArgs": [
+        "--net",
+        "host",
+        "--privileged",
+        "--env=DISPLAY",
+        "--volume=/tmp/.X11-unix:/tmp/.X11-unix:rw"
+    ],
+    "hostRequirements": {
+        "gpu": "optional"
+    },
+    "remoteUser": "devuser",
+    "workspaceFolder": "/home/devuser/workspace/groundgrid",
+    "mounts": [
+        {
+            "source": "${env:HOME}/workspace",
+            "target": "/home/devuser/workspace",
+            "type": "bind"
+        }
+    ],
+    "postCreateCommand": "bash -c 'source /opt/ros/noetic/setup.bash'",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-iot.vscode-ros",
+                "ms-python.black-formatter",
+                "ms-python.vscode-pylance",
+                "ms-python.python",
+                "ms-python.debugpy",
+                "xaver.clang-format",
+                "eamodio.gitlens",
+                "twxs.cmake",
+                "ClemensPeters.format-json",
+                "DavidAnson.vscode-markdownlint",
+                "redhat.vscode-xml",
+                "redhat.vscode-yaml",
+                "mechatroner.rainbow-csv",
+                "llvm-vs-code-extensions.vscode-clangd"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "terminal.integrated.env.linux": {
+                    "CMAKE_PREFIX_PATH": "/opt/ros/noetic:$CMAKE_PREFIX_PATH",
+                    "LD_LIBRARY_PATH": "/opt/ros/noetic/lib:$LD_LIBRARY_PATH"
+                },
+                "search.exclude": {
+                    "**/build": true,
+                    "**/install": true,
+                    "**/log": true
+                },
+                "ros.rosSetupScript": "/opt/ros/noetic/setup.bash",
+                "python.autoComplete.extraPaths": [
+                    "/opt/ros/noetic/lib/python3/dist-packages/"
+                ],
+                "python.analysis.extraPaths": [
+                    "/opt/ros/noetic/lib/python3/dist-packages/"
+                ],
+                "clangd.path": "/usr/bin/clangd",
+                "clangd.checkUpdates": false,
+                "C_Cpp.clang_format_style": "file",
+                "C_Cpp.default.cppStandard": "c++17",
+                "C_Cpp.default.cStandard": "c11",
+                "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+                "C_Cpp.default.browse.path": [
+                    "${workspaceFolder}"
+                ],
+                "C_Cpp.autocomplete": "disabled",
+                "C_Cpp.intelliSenseEngine": "disabled",
+                "C_Cpp.errorSquiggles": "disabled",
+                "C_Cpp.formatting": "disabled",
+                "C_Cpp.intelliSenseEngineFallback": "disabled",
+                "C_Cpp.configurationWarnings": "disabled",
+                "C_Cpp.vcpkg.enabled": false,
+                "C_Cpp.inlayHints.parameterNames.enabled": false,
+                "C_Cpp.autoAddFileAssociations": false,
+                "C_Cpp.codeAnalysis.runAutomatically": false,
+                "C_Cpp.default.enableConfigurationSquiggles": false,
+                "[c]": {
+                    "editor.formatOnSave": true,
+                    "editor.defaultFormatter": "xaver.clang-format"
+                },
+                "[cpp]": {
+                    "editor.formatOnSave": true,
+                    "editor.defaultFormatter": "xaver.clang-format"
+                },
+                "[python]": {
+                    "editor.formatOnSave": true,
+                    "editor.defaultFormatter": "ms-python.black-formatter"
+                },
+                "[yaml]": {
+                    "editor.formatOnSave": true,
+                    "editor.defaultFormatter": "redhat.vscode-yaml"
+                },
+                "[json]": {
+                    "editor.formatOnSave": true,
+                    "editor.defaultFormatter": "ClemensPeters.format-json"
+                },
+                "[xml]": {
+                    "editor.formatOnSave": true,
+                    "editor.defaultFormatter": "redhat.vscode-xml"
+                },
+                "files.trimTrailingWhitespace": true,
+                "files.insertFinalNewline": true,
+                "terminal.integrated.scrollback": 10000
+            }
+        }
+    }
+}

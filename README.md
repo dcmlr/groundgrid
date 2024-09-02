@@ -1,10 +1,13 @@
 # Source code for the article "GroundGrid: LiDAR Point Cloud Ground Segmentation and Terrain Estimation"
+
 This repository contains the source code for the article "GroundGrid: LiDAR Point Cloud Ground Segmentation and Terrain Estimation" published in the IEEE Robotics and Automation Letters ([DOI: 10.1109/LRA.2023.3333233](https://doi.org/10.1109/lra.2023.3333233)).
+
 <p align="center">
   <img src="/res/img/teaser.gif" alt="Ground segmentation results"/>
 </p>
 
-# Dependencies
+## Dependencies
+
 - ROS Noetic Ninjemys
 - catkin
 - roscpp
@@ -26,14 +29,50 @@ This repository contains the source code for the article "GroundGrid: LiDAR Poin
 - cv_bridge
 - pcl_ros
 
-# Build
+## Development Container
+
+To be able to use Nvidia GPU graphics within Docker follow container toolkit installation steps <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#installing-the-nvidia-container-toolkit>.
+
+Build Docker image:
+
+```bash
+docker build -t groundgrid:latest .
 ```
+
+Run Docker container:
+
+```bash
+docker run --net host --privileged --env="DISPLAY=$DISPLAY" --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" -v "${HOME}/workspace:/home/devuser/workspace" -it groundgrid:latest /bin/bash
+```
+
+## Build
+
+Install required dependencies
+
+```bash
+pip3 install -r requirements.txt
+```
+
+Build:
+
+```bash
+cd /home/devuser/workspace/groundgrid/src
+ln -s .. groundgrid
 catkin build -DCMAKE_BUILD_TYPE=Release groundgrid
 ```
 
-# Launch
-## Playback
+## Clean
+
+```bash
+catkin clean
 ```
+
+## Launch
+
+### Playback
+
+```bash
+source devel/setup.bash
 roslaunch groundgrid KITTIPlayback.launch directory:=/path/to/the/SemanticKITTI/dataset sequence:=0
 ```
 
@@ -42,14 +81,15 @@ The launch file opens a RViz window which displays the segmentation results:
   <img src="/res/img/rviz.png" alt="SemanticKitti playback Rviz window"/>
 </p>
 
-
 ## Ground Segmentation Evaluation
-```
+
+```bash
 roslaunch groundgrid KITTIEvaluate.launch directory:=/path/to/the/SemanticKITTI/dataset sequence:=0
 ```
 
 This launch file evaluates the ground segmentation performance of GroundGrid and displays the results every 500 processed clouds.
 The final results are displayed upon receiving Ctrl+C in the terminal:
+
 ```
 Stats
 Received 4540 point clouds. KITTI sequence 00.
@@ -90,4 +130,3 @@ F1			97.35%		8607231		2761917
 Accuracy		97.24%		400339747	411708895
 IoUg			94.84%
 ```
-
