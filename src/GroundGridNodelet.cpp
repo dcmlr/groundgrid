@@ -105,13 +105,10 @@ class GroundGridNodelet : public nodelet::Nodelet {
 
    protected:
     virtual void odom_callback(const nav_msgs::OdometryConstPtr& inOdom){
-        static nav_msgs::OdometryConstPtr lastOdom;
-        if(!lastOdom || std::hypot(lastOdom->pose.pose.position.x-inOdom->pose.pose.position.x, 2.0f) + std::hypot(lastOdom->pose.pose.position.y-inOdom->pose.pose.position.y, 2.0f) >= 1.0){
-            auto start = std::chrono::steady_clock::now();
-            map_ptr_ = groundgrid_->update(inOdom);
-            auto end = std::chrono::steady_clock::now();
-            ROS_DEBUG_STREAM("grid map update took " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() << "ms");
-        }
+        auto start = std::chrono::steady_clock::now();
+        map_ptr_ = groundgrid_->update(inOdom);
+        auto end = std::chrono::steady_clock::now();
+        ROS_DEBUG_STREAM("grid map update took " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() << "ms");
     }
 
     virtual void points_callback(const sensor_msgs::PointCloud2ConstPtr& cloud_msg){
