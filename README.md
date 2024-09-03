@@ -91,3 +91,16 @@ Accuracy		97.24%		400339747	411708895
 IoUg			94.84%
 ```
 
+# Citation
+```
+@article{steinke2024groundgrid,
+  author={Steinke, Nicolai and Goehring, Daniel and Rojas, Raúl},
+  journal={IEEE Robotics and Automation Letters},
+  title={GroundGrid: LiDAR Point Cloud Ground Segmentation and Terrain Estimation},
+  year={2024},
+  volume={9},
+  number={1},
+  pages={420-426},
+  keywords={Sensors;Point cloud compression;Estimation;Laser radar;Image segmentation;Task analysis;Robot sensing systems;Range Sensing;Mapping;Field Robots},
+  doi={10.1109/LRA.2023.3333233}}
+```
