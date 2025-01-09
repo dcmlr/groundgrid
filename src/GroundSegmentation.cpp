@@ -161,8 +161,6 @@ pcl::PointCloud<GroundSegmentation::PCLPoint>::Ptr GroundSegmentation::filter_cl
         const grid_map::Index& gi = entry.second;
         const double& groundheight = ggl(gi(0),gi(1));
 
-
-        const bool ground_point = point.ring == 40 || point.ring == 44 || point.ring == 48 || point.ring == 49 || point.ring == 60 || point.ring == 72;
         // copy the points intensity because it get's overwritten for evaluation purposes
         const float& variance = ggv(gi(0),gi(1));
 
@@ -186,7 +184,6 @@ pcl::PointCloud<GroundSegmentation::PCLPoint>::Ptr GroundSegmentation::filter_cl
     // Re-add outliers to cloud
    for(size_t i : outliers){
         const PCLPoint& point = cloud->points[i];
-        const bool ground_point = point.ring == 40 || point.ring == 44 || point.ring == 48 || point.ring == 49 || point.ring == 60 || point.ring == 72;  
         PCLPoint& segmented_point = filtered_cloud->points.emplace_back(point); //ground point
         segmented_point.intensity = 49;
     }
