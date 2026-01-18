@@ -1,44 +1,52 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
     <name>groundgrid</name>
-    <version>1.0.0</version>
-    <description>GroundGrid: Ground Segmentation and Terrain Estimation</description>
+    <version>0.0.1</version>
+    <description>GroundGrid: LiDAR Point Cloud Segmentation and Terrain Estimation</description>
 
-    <maintainer email="n.steinke@fu-berlin.de">Dahlem Center for Machine Learning and Robotics, Autonomos-Labs, FU Berlin</maintainer>
+    <maintainer email="n.steinke@fu-berlin.de">Autonomos-Labs, FU Berlin</maintainer>
 
     <license>BSD</license>
 
     <url type="website">https://www.autonomos-labs.de/</url>
 
-    <author email="n.steinkeg@fu-berlin.de">Dahlem Center for Machine Learning and Robotics, Autonomos-Labs, FU Berlin</author>
+    <author email="n.steinkeg@fu-berlin.de">Autonomos-Labs, FU Berlin</author>
 
-    <buildtool_depend>catkin</buildtool_depend>
+    <depend>std_msgs</depend>
+    
+    <buildtool_depend>ament_cmake</buildtool_depend>
 
-    <build_depend>roscpp</build_depend>
+    <buildtool_depend>rosidl_default_generators</buildtool_depend>
+
 
     <build_depend>geometry_msgs</build_depend>
     <build_depend>sensor_msgs</build_depend>
-    <build_depend>std_msgs</build_depend>
-    <build_depend>message_generation</build_depend>
-    <exec_depend>message_runtime</exec_depend>
 
-    <depend>nodelet</depend>
-    <depend>dynamic_reconfigure</depend>
+    <build_depend>velodyne_pointcloud</build_depend>
 
-    <!-- grid_map -->
+    <!-- grid_map stuff -->
+    <depend>grid_map</depend>
     <depend>grid_map_core</depend>
     <depend>grid_map_ros</depend>
     <depend>grid_map_cv</depend>
     <depend>grid_map_loader</depend>
+    <depend>grid_map_filters</depend>
     <depend>grid_map_msgs</depend>
     <depend>grid_map_rviz_plugin</depend>
     <depend>grid_map_visualization</depend>
-    <depend>cv_bridge</depend>
-    <depend>nav_msgs</depend>
-    <depend>pcl_ros</depend>
 
+    <depend>cv_bridge</depend>
+    <depend>image_transport</depend>
+
+    <depend>pcl_ros</depend>
+    <depend>pcl_conversions</depend>
+    <depend>tf2</depend>
+    <depend>tf2_ros</depend>
+    <depend>tf2_msgs</depend>
+
+    <depend>tf_transformations</depend>
     <!-- export of nodelet definition XML -->
     <export>
-        <nodelet plugin="${prefix}/nodelet_plugins.xml" />
+        <build_type>ament_cmake</build_type>
     </export>
 </package>

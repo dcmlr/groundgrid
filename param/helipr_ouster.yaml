@@ -1,0 +1,18 @@
+groundgrid_node:
+  ros__parameters:
+    groundgrid/point_count_cell_variance_thres: 10
+    groundgrid/max_ring: 2048
+    groundgrid/groundpatch_detection_minimum_thres: .010
+    groundgrid/distance_factor: 0.0001
+    groundgrid/min_distance_factor: 0.0005
+    groundgrid/min_point_height_thres: 0.3
+    groundgrid/min_point_height_obstacle_thres: 0.1
+    groundgrid/outlier_tolerance: 0.1
+    groundgrid/min_ground_patch_detection_point_count_thres: .25
+    groundgrid/patch_size_change_distance: 30.0
+    groundgrid/occupied_cells_decrease_factor: 5.0
+    groundgrid/occupied_cells_point_count_factor: 20.0    
+    groundgrid/min_outlier_detection_ground_confidence: 1.25
+    groundgrid/max_threads: 8
+    groundgrid/horizontal_point_ang_dist: 0.0035
+    groundgrid/min_dist_squared: 144.0

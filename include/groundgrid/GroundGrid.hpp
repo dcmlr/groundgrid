@@ -1,5 +1,6 @@
+#pragma once
 /*
-Copyright 2023 Dahlem Center for Machine Learning and Robotics, Freie Universität Berlin
+Copyright 2025 Dahlem Center for Machine Learning and Robotics, Freie Universität Berlin
 
 Redistribution and use in source and binary forms, with or without modification, are permitted
 provided that the following conditions are met:
@@ -23,22 +24,23 @@ IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISI
 OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+// Pcl
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
 
 // Grid map
 #include <grid_map_ros/grid_map_ros.hpp>
-#include <grid_map_msgs/GridMap.h>
+#include <grid_map_msgs/msg/grid_map.h>
 
 // ros msgs
-#include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <nav_msgs/Odometry.h>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 
 // tf
+#include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
-#include <geometry_msgs/PointStamped.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-
-#include <groundgrid/GroundGridConfig.h>
+#include <geometry_msgs/msg/point_stamped.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 
 namespace groundgrid {
@@ -50,37 +52,31 @@ namespace groundgrid {
 class GroundGrid {
    public:
 
+    typedef pcl::PointXYZ PCLPoint;
+
     /** Constructor.
      */
-    GroundGrid();
+    GroundGrid(rclcpp::Clock::SharedPtr clock);
 
     /** Destructor.
      */
     virtual ~GroundGrid();
 
-    /** Sets the current dynamic configuration.
-     **
-     ** @param config
-     */
-    void setConfig(groundgrid::GroundGridConfig & config);
-
-    void initGroundGrid(const nav_msgs::OdometryConstPtr &inOdom);
-    std::shared_ptr<grid_map::GridMap> update(const nav_msgs::OdometryConstPtr& inOdom);
+    void onInit();
+    void init(const nav_msgs::msg::Odometry::ConstSharedPtr &inOdom);
+    std::shared_ptr<grid_map::GridMap> update(const nav_msgs::msg::Odometry::ConstSharedPtr& inOdom);
 
     const float mResolution = .33f;
     const float mDimension = 120.0f;
 
    private:
-    /// dynamic config attribute
-    groundgrid::GroundGridConfig config_;
-
     // tf
     tf2_ros::Buffer mTfBuffer;
     tf2_ros::TransformListener mTf2_listener;
+    const rclcpp::Logger  mLogger = rclcpp::get_logger("GroundGrid");
 
-    double mDetectionRadius = 60.0;
     std::shared_ptr<grid_map::GridMap> mMap_ptr;
-    geometry_msgs::TransformStamped mTfPosition, mTfLux, mTfUtm, mTfMap;
-    geometry_msgs::PoseWithCovarianceStamped mLastPose;
+    geometry_msgs::msg::TransformStamped mTfPosition, mTfUtm, mTfMap;
+    geometry_msgs::msg::PoseWithCovarianceStamped mLastPose;
 };
 }

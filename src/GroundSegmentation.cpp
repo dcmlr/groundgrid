@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Dahlem Center for Machine Learning and Robotics, Freie Universität Berlin
+Copyright 2025 Dahlem Center for Machine Learning and Robotics, Freie Universität Berlin
 
 Redistribution and use in source and binary forms, with or without modification, are permitted
 provided that the following conditions are met:
@@ -22,32 +22,34 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
 IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
 OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
-#include <groundgrid/GroundSegmentation.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <groundgrid/GroundSegmentation.hpp>
+#include <sensor_msgs/msg/detail/point_cloud2__struct.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <chrono>
-#include <unordered_map>
 #include <algorithm>
 #include <thread>
 
 using namespace groundgrid;
 
 
-void GroundSegmentation::init(ros::NodeHandle& nodeHandle, const size_t dimension, const float& resolution){
+void GroundSegmentation::init(const size_t dimension, const float& resolution, const GroundGrid_Config& config, bool visualize_segmentation){
+    config_ = config;
+    visualize_segmentation_ = visualize_segmentation;
+
     const size_t cellCount = std::round(dimension/resolution);
 
-    expectedPoints.resize(cellCount, cellCount);
+    expected_points_.resize(cellCount, cellCount);
     for(size_t i=0; i<cellCount; ++i){
         for(size_t j=0; j<cellCount; ++j){
             const float& dist = std::hypot(i-cellCount/2.0,j-cellCount/2.0);
-            expectedPoints(i,j) = std::atan(1/dist)/verticalPointAngDist;
+            expected_points_(i,j) = std::atan(1/dist)/config.horizontal_point_ang_dist;
         }
     }
     Eigen::initParallel();
 }
 
-pcl::PointCloud<GroundSegmentation::PCLPoint>::Ptr GroundSegmentation::filter_cloud(const pcl::PointCloud<PCLPoint>::Ptr cloud, const PCLPoint& cloudOrigin, const geometry_msgs::TransformStamped& mapToBase, grid_map::GridMap &map)
+sensor_msgs::msg::PointCloud2::SharedPtr GroundSegmentation::filter_cloud(const sensor_msgs::msg::PointCloud2::ConstSharedPtr cloud, const PCLPoint& cloudOrigin, const geometry_msgs::msg::TransformStamped& mapToBase, grid_map::GridMap &map)
 {
     auto start = std::chrono::steady_clock::now();
     static double avg_insertion_time = 0.0;
@@ -55,17 +57,22 @@ pcl::PointCloud<GroundSegmentation::PCLPoint>::Ptr GroundSegmentation::filter_cl
     static double avg_segmentation_time = 0.0;
     static unsigned int time_vals = 0;
 
-    pcl::PointCloud<PCLPoint>::Ptr filtered_cloud (new pcl::PointCloud<PCLPoint>);
-    filtered_cloud->points.reserve(cloud->points.size());
+    sensor_msgs::msg::PointCloud2::SharedPtr filtered_cloud(new sensor_msgs::msg::PointCloud2);
+    filtered_cloud->data.resize(cloud->data.size());
+    filtered_cloud->fields = cloud->fields;
+    filtered_cloud->height = cloud->height;
+    filtered_cloud->is_bigendian = cloud->is_bigendian;
+    filtered_cloud->point_step = cloud->point_step;
+    filtered_cloud->row_step = cloud->row_step;
+    filtered_cloud->is_dense = true;
+    filtered_cloud->width = 0; // empty for now
 
     map.add("groundCandidates", 0.0);
     map.add("planeDist", 0.0);
     map.add("m2", 0.0);
     map.add("meanVariance", 0.0);
-
     // raw point count layer for the evaluation
     map.add("pointsRaw", 0.0);
-
 
     map["groundCandidates"].setZero();
     map["points"].setZero();
@@ -74,14 +81,21 @@ pcl::PointCloud<GroundSegmentation::PCLPoint>::Ptr GroundSegmentation::filter_cl
 
     map.add("variance", 0.0);
     static const grid_map::Matrix& ggv = map["variance"];
+    static const grid_map::Matrix& ggp = map["groundpatch"];
+    static grid_map::Matrix& gmx = map["maxGroundHeight"];
+    static grid_map::Matrix& gmi = map["minGroundHeight"];
+    static grid_map::Matrix& gmg = map["groundCandidates"];
     static grid_map::Matrix& gpl = map["points"];
+    static grid_map::Matrix& gmd = map["planeDist"];
+    static grid_map::Matrix& gm2 = map["m2"];
+    static grid_map::Matrix& gmm = map["meanVariance"];
     static grid_map::Matrix& ggl = map["ground"];
     const auto& size = map.getSize();
-    const size_t threadcount = mConfig.thread_count;
+    const size_t threadcount = config_.max_threads;
 
 
     std::vector<std::pair<size_t, grid_map::Index> > point_index;
-    point_index.reserve(cloud->points.size());
+    point_index.reserve(cloud->width);
     std::vector<std::vector<std::pair<size_t, grid_map::Index> > > point_index_list;
     point_index_list.resize(threadcount);
 
@@ -99,8 +113,8 @@ pcl::PointCloud<GroundSegmentation::PCLPoint>::Ptr GroundSegmentation::filter_cl
     std::vector<std::thread> threads;
 
     for(size_t i=0; i<threadcount; ++i){
-        const size_t start = std::floor((i*cloud->points.size())/threadcount);
-        const size_t end = std::ceil(((i+1)*cloud->points.size())/threadcount);
+        const size_t start = std::floor((i*cloud->width)/threadcount);
+        const size_t end = std::ceil(((i+1)*cloud->width)/threadcount);
         threads.push_back(std::thread(&GroundSegmentation::insert_cloud, this, cloud, start, end, std::cref(cloudOrigin), std::ref(point_index_list[i]), std::ref(ignored_list[i]),
                                       std::ref(outliers_list[i]), std::ref(map)));
     }
@@ -121,7 +135,7 @@ pcl::PointCloud<GroundSegmentation::PCLPoint>::Ptr GroundSegmentation::filter_cl
     std::chrono::duration<double> elapsed_seconds = end-start;
     const double milliseconds = elapsed_seconds.count() * 1000;
     avg_insertion_time = (milliseconds + time_vals * avg_insertion_time)/(time_vals+1);
-    ROS_DEBUG_STREAM("ground point rasterization took " << milliseconds << "ms (avg " << avg_insertion_time << " ms)");
+    RCLCPP_DEBUG_STREAM(logger_, "ground point rasterization took " << milliseconds << "ms (avg " << avg_insertion_time << " ms)");
 
     start = std::chrono::steady_clock::now();
 
@@ -135,73 +149,104 @@ pcl::PointCloud<GroundSegmentation::PCLPoint>::Ptr GroundSegmentation::filter_cl
     end = std::chrono::steady_clock::now();
     elapsed_seconds = end-start;
     avg_detection_time = (elapsed_seconds.count() * 1000 + time_vals * avg_detection_time)/(time_vals+1);
-    ROS_DEBUG_STREAM("ground patch detection took " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() << "ms (avg " << avg_detection_time << " ms)");
+    RCLCPP_DEBUG_STREAM(logger_, "ground patch detection took " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() << "ms (avg " << avg_detection_time << " ms)");
     ++time_vals;
 
     start = std::chrono::steady_clock::now();
     spiral_ground_interpolation(map, mapToBase);
     end = std::chrono::steady_clock::now();
-    ROS_DEBUG_STREAM("ground interpolation took " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() << "ms");
+    RCLCPP_DEBUG_STREAM(logger_, "ground interpolation took " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() << "ms");
 
     start = std::chrono::steady_clock::now();
-    map["points"].setConstant(0.0);
+    if(config_.median_ground_filter){
+        cv::Mat ground_img, ground_median_img;
+        grid_map::GridMapCvConverter::toImage<float, 1>(map,"ground",CV_32FC1,ground_img);
+        cv::medianBlur(ground_img, ground_median_img, 5);
+        grid_map::GridMapCvConverter::addLayerFromImage<float, 1>(ground_median_img, "ground_filtered", map, map["ground"].minCoeff(), map["ground"].maxCoeff());
+        map["ground"] = map["ground_filtered"];
+        end = std::chrono::steady_clock::now();
+        RCLCPP_DEBUG_STREAM(logger_, "ground median filter took " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() << "ms");
+    }
 
+    start = std::chrono::steady_clock::now();
+
+    map["points"].setConstant(0.0);
+    
     // Re-add ignored points
     point_index.insert(point_index.end(), ignored.begin(), ignored.end());
 
 
     // Debugging statistics
-    const double& min_dist_fac = mConfig.minimum_distance_factor*5;
-    const double& min_point_height_thres = mConfig.miminum_point_height_threshold;
-    const double& min_point_height_obs_thres = mConfig.minimum_point_height_obstacle_threshold;
+    const double& min_dist_fac = config_.min_distance_factor*5;
+    const double& min_point_height_thres = config_.min_point_height_thres;
+    const double& min_point_height_obs_thres = config_.min_point_height_obstacle_thres;
+
+    const unsigned char* data = cloud->data.data();
+    unsigned char* filtered_data = filtered_cloud->data.data();
+    const auto& point_step = cloud->point_step;
+    const auto& y_offset = cloud->fields[1].offset;
+    const auto& z_offset = cloud->fields[2].offset;
+    const auto& intensity_offset = cloud->fields[3].offset;
 
     for(const std::pair<size_t, grid_map::Index>& entry : point_index)
     {
-        const PCLPoint& point = cloud->points[entry.first];
         const grid_map::Index& gi = entry.second;
         const double& groundheight = ggl(gi(0),gi(1));
-
-        // copy the points intensity because it get's overwritten for evaluation purposes
-        const float& variance = ggv(gi(0),gi(1));
+        const auto& data_idx = point_step*entry.first;    
+        const float& variance = ggv(gi(0),gi(1)) + std::numeric_limits<float>::min();
 
         if(size(0) <= gi(0)+3 || size(1) <= gi(1)+3)
             continue;
 
-        const float dist = std::hypot(point.x-cloudOrigin.x, point.y-cloudOrigin.y);
+        const float dist = std::hypot(*reinterpret_cast<const float*>(data_idx+data)-cloudOrigin.x, *reinterpret_cast<const float*>(data_idx+y_offset+data)-cloudOrigin.y);
         const double tolerance = std::max(std::min((min_dist_fac*dist)/variance * min_point_height_thres, min_point_height_thres), min_point_height_obs_thres);
 
-        if(tolerance+groundheight < point.z){ // non-ground points
-            PCLPoint& segmented_point = filtered_cloud->points.emplace_back(point);
-            segmented_point.intensity = 99;
+        if(tolerance+groundheight < *reinterpret_cast<const float*>(data_idx+z_offset+data)){ // non-ground points
+            auto segmented_point = filtered_data + (filtered_cloud->width * point_step);
+            std::memcpy(segmented_point, reinterpret_cast<const float*>(data_idx+data), point_step);
+
+            if(visualize_segmentation_)
+                *reinterpret_cast<float*>(filtered_data + (filtered_cloud->width * point_step)+intensity_offset) = 99;
+            filtered_cloud->width++;
             gpl(gi(0),gi(1)) += 1.0f;
         }
         else{
-            PCLPoint& segmented_point = filtered_cloud->points.emplace_back(point); // ground point
-            segmented_point.intensity = 49;
+            if(visualize_segmentation_){
+                std::memcpy(filtered_cloud->data.data() + (filtered_cloud->width * filtered_cloud->point_step),
+                     reinterpret_cast<const float*>(data_idx+data), point_step);
+                *reinterpret_cast<float*>(filtered_data + (filtered_cloud->width * point_step)+intensity_offset) = 49; // ground point
+                filtered_cloud->width++;
+            }
         }
     }
 
     // Re-add outliers to cloud
    for(size_t i : outliers){
-        const PCLPoint& point = cloud->points[i];
-        PCLPoint& segmented_point = filtered_cloud->points.emplace_back(point); //ground point
-        segmented_point.intensity = 49;
+        const auto& data_idx = point_step*i;
+        if(visualize_segmentation_){
+            std::memcpy(filtered_data + (filtered_cloud->width * point_step),
+                 reinterpret_cast<const float*>(data_idx+data), point_step);
+            *reinterpret_cast<float*>(filtered_data + (filtered_cloud->width * point_step)+intensity_offset) = 49; // ground point
+            filtered_cloud->width++;
+        }
     }
+
+    // resize cloud to correct size
+    filtered_cloud->data.resize(filtered_cloud->width * filtered_cloud->point_step);
 
     end = std::chrono::steady_clock::now();
     elapsed_seconds = end-start;
     avg_segmentation_time = (elapsed_seconds.count() * 1000 + (time_vals-1) * avg_segmentation_time)/time_vals;
-    ROS_DEBUG_STREAM("point cloud segmentation took " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() << "ms (avg " << avg_segmentation_time << " ms)");
+    RCLCPP_DEBUG_STREAM(logger_, "point cloud segmentation took " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() << "ms (avg " << avg_segmentation_time << " ms)");
 
     return filtered_cloud;
 }
 
 
-void GroundSegmentation::insert_cloud(const pcl::PointCloud<PCLPoint>::Ptr cloud, const size_t start, const size_t end, const PCLPoint& cloudOrigin, std::vector<std::pair<size_t, grid_map::Index> >& point_index,
+void GroundSegmentation::insert_cloud(const sensor_msgs::msg::PointCloud2::ConstSharedPtr cloud, const size_t start, const size_t end, const PCLPoint& cloudOrigin, std::vector<std::pair<size_t, grid_map::Index> >& point_index,
                                       std::vector<std::pair<size_t, grid_map::Index> >& ignored, std::vector<size_t>& outliers, grid_map::GridMap &map)
 {
     static const grid_map::Matrix& ggp = map["groundpatch"];
-
     static grid_map::Matrix& gpr = map["pointsRaw"];
     static grid_map::Matrix& gpl = map["points"];
     static grid_map::Matrix& ggl = map["ground"];
@@ -216,12 +261,22 @@ void GroundSegmentation::insert_cloud(const pcl::PointCloud<PCLPoint>::Ptr cloud
 
     point_index.reserve(end-start);
 
+
+
+    const unsigned char* data = cloud->data.data();
+    const auto& point_step = cloud->point_step;
+    const auto& y_offset = cloud->fields[1].offset;
+    const auto& z_offset = cloud->fields[2].offset;
+    const auto& intensity_offset = cloud->fields[3].offset;
+    const auto& ring_offset = cloud->fields[4].offset;
+
     for(size_t i = start; i < end; ++i)
     {
-        const PCLPoint& point = cloud->points[i];
-        const auto& pos = grid_map::Position(point.x,point.y);
-        const float sqdist = std::pow(point.x-cloudOrigin.x, 2.0) + std::pow(point.y-cloudOrigin.y, 2.0);
-
+        const auto& data_idx = point_step*i;
+        const auto& pos = grid_map::Position(*reinterpret_cast<const float*>(data_idx+data),*reinterpret_cast<const float*>(data_idx+y_offset+data));
+        const float sqdist = std::pow(*reinterpret_cast<const float*>(data_idx+data)-cloudOrigin.x, 2.0) + 
+            std::pow(*reinterpret_cast<const float*>(data_idx+y_offset+data)-cloudOrigin.y, 2.0);
+        
         bool toSkip=false;
 
         grid_map::Index gi;
@@ -233,21 +288,24 @@ void GroundSegmentation::insert_cloud(const pcl::PointCloud<PCLPoint>::Ptr cloud
         // point count map used for evaluation
         gpr(gi(0), gi(1)) += 1.0f;
 
-
-        if(point.ring > mConfig.max_ring || sqdist < minDistSquared){
+        // ignore invalid points at the sensor's origin
+        if(sqdist == 0.0){ 
+            continue;
+        }
+        // Outlier detection test
+        const float oldgroundheight = ggl(gi(0), gi(1));
+        if(sqdist < config_.min_dist_squared){
             ignored.push_back(std::make_pair(i, gi));
             continue;
         }
 
-        // Outlier detection test
-        const float oldgroundheight = ggl(gi(0), gi(1));
-        if(point.z < oldgroundheight-0.2){
+        if(ggp(gi(0), gi(1)) > 0.0f && *reinterpret_cast<const float*>(data_idx+z_offset+data) < oldgroundheight-0.2){
 
             // get direction
             PCLPoint vec;
-            vec.x = point.x - cloudOrigin.x;
-            vec.y = point.y - cloudOrigin.y;
-            vec.z = point.z - cloudOrigin.z;
+            vec.x = *reinterpret_cast<const float*>(data_idx+data) - cloudOrigin.x;
+            vec.y = *reinterpret_cast<const float*>(data_idx+y_offset+data) - cloudOrigin.y;
+            vec.z = *reinterpret_cast<const float*>(data_idx+z_offset+data) - cloudOrigin.z;
 
             float len = std::sqrt(std::pow(vec.x, 2.0f) + std::pow(vec.y, 2.0f) + std::pow(vec.z, 2.0f));
             vec.x /= len;
@@ -266,7 +324,7 @@ void GroundSegmentation::insert_cloud(const pcl::PointCloud<PCLPoint>::Ptr cloud
 
                 // check if known ground occludes the line of sight
                 const auto& block = ggp.block<3,3>(std::max(intersection(0)-1, 2), std::max(intersection(1)-1,2));
-                if(block.sum() > mConfig.min_outlier_detection_ground_confidence && ggp(intersection(0),intersection(1)) > 0.01f && ggl(intersection(0),intersection(1)) >= step*vec.z+cloudOrigin.z+mConfig.outlier_tolerance){
+                if(block.sum() > config_.min_outlier_detection_ground_confidence && ggp(intersection(0),intersection(1)) > 0.01f && ggl(intersection(0),intersection(1)) >= step*vec.z+cloudOrigin.z+config_.outlier_tolerance){
                     outliers.push_back(i);
                     toSkip=true;
                     break;
@@ -292,8 +350,8 @@ void GroundSegmentation::insert_cloud(const pcl::PointCloud<PCLPoint>::Ptr cloud
         float &planeDistMap = gmd(gi(0),gi(1));
         float &m2 = gm2(gi(0),gi(1));
 
-        planeDist = point.z - cloudOrigin.z;
-        groundheight = (point.z + points * groundheight)/(points+1.0);
+        planeDist = *reinterpret_cast<const float*>(data_idx+z_offset+data) - cloudOrigin.z;
+        groundheight = (*reinterpret_cast<const float*>(data_idx+z_offset+data) + points * groundheight)/(points+1.0);
 
         if(mean == 0.0)
             mean = planeDist;
@@ -304,8 +362,8 @@ void GroundSegmentation::insert_cloud(const pcl::PointCloud<PCLPoint>::Ptr cloud
             m2 += delta * (planeDist - mean);
         }
 
-        maxHeight = std::max(maxHeight, point.z);
-        minHeight =std::min(minHeight, point.z-0.0001f); // to make sure maxHeight > minHeight
+        maxHeight = std::max(maxHeight, *reinterpret_cast<const float*>(data_idx+z_offset+data));
+        minHeight =std::min(minHeight, *reinterpret_cast<const float*>(data_idx+z_offset+data)-0.0001f); // to make sure maxHeight > minHeight
         points += 1.0;
     }
 }
@@ -331,14 +389,13 @@ void GroundSegmentation::detect_ground_patches(grid_map::GridMap &map, unsigned 
         for(int j=rows_start; j<rows_end; ++j){
             const float sqdist = (std::pow(i-(size(0)/2.0),2.0) + std::pow(j-(size(1)/2.0), 2.0)) * std::pow(resolution,2.0);
 
-            if(sqdist <= std::pow(mConfig.patch_size_change_distance, 2.0))
+            if(sqdist <= std::pow(config_.patch_size_change_distance, 2.0))
                 detect_ground_patch<3>(map, i, j);
             else
                 detect_ground_patch<5>(map, i, j);
         }
     }
 }
-
 
 template <int S> void GroundSegmentation::detect_ground_patch(grid_map::GridMap& map, size_t i, size_t j) const
 {
@@ -355,36 +412,36 @@ template <int S> void GroundSegmentation::detect_ground_patch(grid_map::GridMap&
     const auto& pointsBlock = gpl.block<S,S>(i-center_idx,j-center_idx);
     const float sqdist = (std::pow(i-(size(0)/2.0),2.0) + std::pow(j-(size(1)/2.0), 2.0)) * std::pow(resolution,2.0);
     const int patchSize = S;
-    const float& expectedPointCountperLaserperCell = expectedPoints(i,j);
+    const float& expectedPointCountperLaserperCell = expected_points_(i,j);
     const float& pointsblockSum = pointsBlock.sum();
     float& oldConfidence = ggp(i,j);
     float& oldGroundheight = ggl(i,j);
 
     // early skipping of (almost) empty areas
-    if(pointsblockSum < std::max(std::floor(mConfig.ground_patch_detection_minimum_point_count_threshold * patchSize * expectedPointCountperLaserperCell), 3.0))
+    if(pointsblockSum < std::max(std::floor(config_.min_ground_patch_detection_point_count_thres * patchSize * expectedPointCountperLaserperCell), 3.0))
         return;
 
     // calculation of variance threshold
     // limit the value to the defined minimum and 10 times the defined minimum
-    const float varThresholdsq = std::min(std::max(sqdist * std::pow(mConfig.distance_factor,2.0), std::pow(mConfig.minimum_distance_factor,2.0)), std::pow(mConfig.minimum_distance_factor*10, 2.0));
+    const float varThresholdsq = std::min(std::max(sqdist * std::pow(config_.distance_factor,2.0), std::pow(config_.min_distance_factor,2.0)), std::pow(config_.min_distance_factor*10, 2.0));
     const auto& varblock = ggv.block<S,S>(i-center_idx,j-center_idx);
     const auto& minblock = gmi.block<S,S>(i-center_idx, j-center_idx);
     const float& variance = varblock(center_idx,center_idx);
     const float& localmin = minblock.minCoeff();
-    const float maxVar = pointsBlock(center_idx,center_idx) >= mConfig.point_count_cell_variance_threshold ? variance : pointsBlock.array().cwiseProduct(varblock.array()).sum()/pointsblockSum;
+    const float maxVar = pointsBlock(center_idx,center_idx) >= config_.point_count_cell_variance_thres ? variance : pointsBlock.array().cwiseProduct(varblock.array()).sum()/pointsblockSum;
     const float groundlevel = pointsBlock.cwiseProduct(minblock).sum()/pointsblockSum;
     const float groundDiff = std::max((groundlevel - oldGroundheight) * (2.0f*oldConfidence), 1.0f);
 
     // Do not update known high confidence estimations upward
-    if(oldConfidence > 0.5 && groundlevel >= oldGroundheight + mConfig.outlier_tolerance)
+    if(oldConfidence > 0.5 && groundlevel >= oldGroundheight + config_.outlier_tolerance)
         return;
 
-    if(varThresholdsq > std::pow(maxVar, 2.0) && maxVar > 0 && pointsblockSum > (groundDiff * expectedPointCountperLaserperCell * patchSize) * mConfig.ground_patch_detection_minimum_point_count_threshold){
-            const float& newConfidence = std::min(pointsblockSum/mConfig.occupied_cells_point_count_factor, 1.0);
+    if(varThresholdsq > std::pow(maxVar, 2.0) && maxVar > 0 && pointsblockSum > (groundDiff * expectedPointCountperLaserperCell * patchSize) * config_.min_ground_patch_detection_point_count_thres){
+            const float& newConfidence = std::min(pointsblockSum/config_.occupied_cells_point_count_factor, 1.0);
             // calculate ground height
             oldGroundheight = (groundlevel*newConfidence + oldConfidence * oldGroundheight*2)/(newConfidence+oldConfidence*2);
             // update confidence
-            oldConfidence = std::min((pointsblockSum/(mConfig.occupied_cells_point_count_factor*2.0f) + oldConfidence)/2.0, 1.0);
+            oldConfidence = std::min((pointsblockSum/(config_.occupied_cells_point_count_factor*2.0f) + oldConfidence)/2.0, 1.0);
     }
     else if(localmin < oldGroundheight){
         // update ground height
@@ -395,7 +452,7 @@ template <int S> void GroundSegmentation::detect_ground_patch(grid_map::GridMap&
 }
 
 
-void GroundSegmentation::spiral_ground_interpolation(grid_map::GridMap &map, const geometry_msgs::TransformStamped &toBase) const
+void GroundSegmentation::spiral_ground_interpolation(grid_map::GridMap &map, const geometry_msgs::msg::TransformStamped &toBase) const
 {
     static grid_map::Matrix& ggl = map["ground"];
     static grid_map::Matrix& gvl = map["groundpatch"];
@@ -403,7 +460,7 @@ void GroundSegmentation::spiral_ground_interpolation(grid_map::GridMap &map, con
     const auto& center_idx = map_size(0)/2-1;
 
     gvl(center_idx,center_idx) = 1.0f;
-    geometry_msgs::PointStamped ps;
+    geometry_msgs::msg::PointStamped ps;
     ps.header.frame_id = "base_link";
     tf2::doTransform(ps,ps,toBase);
 
@@ -441,7 +498,6 @@ void GroundSegmentation::spiral_ground_interpolation(grid_map::GridMap &map, con
 }
 
 
-
 void GroundSegmentation::interpolate_cell(grid_map::GridMap &map, const size_t x, const size_t y) const
 {
     static const auto& center_idx = map.getSize()(0)/2-1;
@@ -460,12 +516,8 @@ void GroundSegmentation::interpolate_cell(grid_map::GridMap &map, const size_t x
     height = (1.0f-occupied) * avg + occupied * height;
 
     // Only update confidence in cells above min distance
-    if((std::pow((float)x-center_idx, 2.0) + std::pow((float)y-center_idx, 2.0)) * std::pow(map.getResolution(), 2.0f) > minDistSquared)
-        occupied = std::max(occupied-occupied/mConfig.occupied_cells_decrease_factor, 0.001);
+    if((std::pow((float)x-center_idx, 2.0) + std::pow((float)y-center_idx, 2.0)) * std::pow(map.getResolution(), 2.0f) > config_.min_dist_squared)
+        occupied = std::max(occupied-occupied/config_.occupied_cells_decrease_factor, 0.001);
 }
 
 
-void GroundSegmentation::setConfig(const groundgrid::GroundGridConfig &config)
-{
-    mConfig = config;
-}
