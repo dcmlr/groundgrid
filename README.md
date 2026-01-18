@@ -4,6 +4,9 @@ This repository contains the source code for the article "GroundGrid: LiDAR Poin
   <img src="/res/img/teaser.gif" alt="Ground segmentation results"/>
 </p>
 
+# ROS2 Port
+An extended ROS2 Jazzy port is available under the [ros2-jazzy](https://github.com/dcmlr/groundgrid/tree/ros2-jazzy) branch.
+
 # Dependencies
 - ROS Noetic Ninjemys
 - catkin
