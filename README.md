@@ -94,7 +94,7 @@ The transform "velodyne"<->"base_link" must be available. The odometry is expect
 
 ## Ground Segmentation Evaluation
 ```
-ros2 launch groundgrid KITTIEvaluate.launch directory:=/path/to/the/SemanticKITTI/dataset sequence:=0
+ros2 launch groundgrid KITTIEvaluate.launch.py directory:=/path/to/the/SemanticKITTI/dataset sequence:=0
 ```
 
 This launch file evaluates the ground segmentation performance of GroundGrid. The average runtime of GroundGrid is also displayed in the console window. Note that only the runtime of the GroundGrid algorithm is measured, excluding the runtime of the evaluation script.
